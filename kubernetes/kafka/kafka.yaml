@@ -1,0 +1,141 @@
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: node-reader
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kafka-node-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: node-reader
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: kafka
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka
+  namespace: kafka
+spec:
+  selector:
+    matchLabels:
+      app: kafka
+  serviceName: broker
+  replicas: 6
+  updateStrategy:
+    type: OnDelete
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      terminationGracePeriodSeconds: 60
+      initContainers:
+      - name: elb-discover
+        image: solsson/kafka-initutils
+        command: [ "/bin/bash" ]
+        args: [ "-c", "until elb=$(kubectl get svc kafka-${HOSTNAME##*-} -n kafka -o jsonpath='{.status.loadBalancer.ingress[0].ip}') && [[ -n $elb ]]; do sleep 5 ; done ; echo $elb > /etc/kubernetes/elb" ]
+        volumeMounts:
+        - name: kubernetes-environment
+          mountPath: /etc/kubernetes
+      containers:
+      - env:
+        - name: _COMMAND_KAFKA_BROKER_ID
+          value: 'echo ${HOSTNAME} | rev | cut -d- -f1 | rev'
+        - name: _COMMAND_KAFKA_BROKER_RACK
+          value: 'curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone'
+        - name: _COMMAND_HOSTNAME
+          value: 'cat /etc/kubernetes/elb'
+        - name: _COMMAND_PORT
+          value: 'echo 3240${_KAFKA_BROKER_ID}'
+        - name: _KAFKA_ADVERTISED_LISTENERS
+          value: INSIDE://:9092,OUTSIDE://%HOSTNAME%:%PORT%
+        - name: _KAFKA_LISTENERS
+          value: INSIDE://:9092,OUTSIDE://:9093
+        - name: _KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+          value: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+        - name: _KAFKA_INTER_BROKER_LISTENER_NAME
+          value: INSIDE
+        - name: _KAFKA_DEFAULT_REPLICATION_FACTOR
+          value: "3"
+        - name: _KAFKA_MIN_INSYNC_REPLICAS
+          value: "2"
+        - name: _KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+          value: "3"
+        - name: _KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+          value: "2"
+        - name: _KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+          value: "3"
+        - name: _KAFKA_ZOOKEEPER_CONNECT
+          value: zookeeper-0.zookeeper:2181,zookeeper-1.zookeeper:2181,zookeeper-2.zookeeper:2181
+        - name: _KAFKA_LOG_DIRS
+          value: "/volume/kafka/data/tp"
+        - name: _KAFKA_HEAP_OPTS
+          value: "-Xmx30720M"
+        - name: _KAFKA_JMX_PORT
+          value: "9999"
+        - name: JMX_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: _KAFKA_JMX_HOST
+          value: $(JMX_HOST).broker
+        - name: _AUTO_PARTITION_REASSIGNMENT
+          value: "false"
+        image: <your ACR>/kafka:latest
+        imagePullPolicy: Always
+        name: broker
+        ports:
+        - containerPort: 9092
+          name: client-internal
+        - containerPort: 9093
+          name: client-external
+        - containerPort: 9999
+          name: jmx
+        resources:
+          requests:
+            cpu: "2"
+            memory: 12Gi
+          limits:
+            cpu: "4"
+            memory: 16Gi
+        volumeMounts:
+        - mountPath: /etc/kubernetes
+          name: kubernetes-environment
+        - mountPath: /volume/kafka/data
+          name: kafka-data
+        - mountPath: /volume/kafka/config
+          name: kafka-config
+      volumes:
+      - name: kubernetes-environment
+        emptyDir: {}
+  volumeClaimTemplates:
+  - metadata:
+      name: kafka-data
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      storageClassName: kafka-broker
+      resources:
+        requests:
+          storage: 50Gi
+  - metadata:
+      name: kafka-config
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Mi

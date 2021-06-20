@@ -1,0 +1,98 @@
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+ name: zookeeper
+spec:
+ selector:
+   matchLabels:
+     app: zookeeper
+ maxUnavailable: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zookeeper
+  namespace: kafka
+spec:
+  selector:
+    matchLabels:
+      app: zookeeper
+  serviceName: zookeeper
+  replicas: 3
+  updateStrategy:
+    type: RollingUpdate
+  podManagementPolicy: Parallel
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+    spec:
+      terminationGracePeriodSeconds: 10
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "app"
+                    operator: In
+                    values:
+                    - zookeeper
+              topologyKey: "kubernetes.io/hostname"
+      containers:
+      - env:
+        - name: _COMMAND_ZOOKEEPER_ID
+          value: echo ${HOSTNAME} | rev | cut -d- -f1 | rev
+        - name: _ZOOKEEPER_HEAP_OPTS
+          value: "-Xmx3072M"
+        - name: _ZOOKEEPER_SERVERS
+          value: zookeeper-0.zookeeper:2888:3888,zookeeper-1.zookeeper:2888:3888,zookeeper-2.zookeeper:2888:3888
+        - name: _ZOOKEEPER_JMX_PORT
+          value: "9998"
+        - name: JMX_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: _ZOOKEEPER_JMX_HOST
+          value: $(JMX_HOST).zookeeper
+        image: <your ACR>/zookeeper:latest
+        imagePullPolicy: Always
+        name: zookeeper
+        ports:
+        - containerPort: 2181
+          name: client
+        - containerPort: 2888
+          name: peer
+        - containerPort: 3888
+          name: leader-election
+        - containerPort: 9998
+          name: jmx
+        resources:
+          requests:
+            cpu: "1.5"
+            memory: 3328Mi
+          limits:
+            cpu: "1.5"
+            memory: 3328Mi
+        volumeMounts:
+        - mountPath: /volume/zookeeper/data
+          name: zookeeper-data
+        - mountPath: /volume/zookeeper/config
+          name: zookeeper-config
+  volumeClaimTemplates:
+  - metadata:
+      name: zookeeper-data
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      storageClassName: kafka-zookeeper
+      resources:
+        requests:
+          storage: 10Gi
+  - metadata:
+      name: zookeeper-config
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Mi

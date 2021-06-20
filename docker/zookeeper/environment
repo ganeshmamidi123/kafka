@@ -1,0 +1,7 @@
+PORTS = -p 2181:2181 -p 9998:9998
+ENV = \
+  -e _ZOOKEEPER_ID=1 \
+  -e _ZOOKEEPER_SERVERS=host.docker.internal:2888:3888 \
+  -e _ZOOKEEPER_HEAP_OPTS=-Xmx256M \
+  -e _ZOOKEEPER_JMX_PORT=9998 \
+  -e _ZOOKEEPER_JMX_HOST=host.docker.internal

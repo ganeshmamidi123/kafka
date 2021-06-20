@@ -1,0 +1,136 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: broker
+  namespace: kafka
+  annotations:
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+spec:
+  ports:
+  - port: 9092
+    name: client
+  - port: 9999
+    name: jmx
+  clusterIP: None
+  selector:
+    app: kafka
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-0
+  namespace: kafka
+  labels:
+    app: kafka-0
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 32400
+    name: client-external
+    targetPort: 9093
+    nodePort: 32400
+    protocol: TCP
+  selector:
+    statefulset.kubernetes.io/pod-name: kafka-0
+  loadBalancerSourceRanges:
+  - <your trusted IP appress in the form of 0.0.0.0/0>
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-1
+  namespace: kafka
+  labels:
+    app: kafka-1
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 32401
+    name: client-external
+    targetPort: 9093
+    nodePort: 32401
+    protocol: TCP
+  selector:
+    statefulset.kubernetes.io/pod-name: kafka-1
+  loadBalancerSourceRanges:
+  - <your trusted IP appress in the form of 0.0.0.0/0>
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-2
+  namespace: kafka
+  labels:
+    app: kafka-2
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 32402
+    name: client-external
+    targetPort: 9093
+    nodePort: 32402
+    protocol: TCP
+  selector:
+    statefulset.kubernetes.io/pod-name: kafka-2
+  loadBalancerSourceRanges:
+  - <your trusted IP appress in the form of 0.0.0.0/0>
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-3
+  namespace: kafka
+  labels:
+    app: kafka-3
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 32403
+    name: client-external
+    targetPort: 9093
+    nodePort: 32403
+    protocol: TCP
+  selector:
+    statefulset.kubernetes.io/pod-name: kafka-3
+  loadBalancerSourceRanges:
+  - <your trusted IP appress in the form of 0.0.0.0/0>
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-4
+  namespace: kafka
+  labels:
+    app: kafka-4
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 32404
+    name: client-external
+    targetPort: 9093
+    nodePort: 32404
+    protocol: TCP
+  selector:
+    statefulset.kubernetes.io/pod-name: kafka-4
+  loadBalancerSourceRanges:
+  - <your trusted IP appress in the form of 0.0.0.0/0>
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-5
+  namespace: kafka
+  labels:
+    app: kafka-5
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 32405
+    name: client-external
+    targetPort: 9093
+    nodePort: 32405
+    protocol: TCP
+  selector:
+    statefulset.kubernetes.io/pod-name: kafka-5
+  loadBalancerSourceRanges:
+  - <your trusted IP appress in the form of 0.0.0.0/0>
